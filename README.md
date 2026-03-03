@@ -4,10 +4,10 @@ This project is made using [this template](https://github.com/SwissDataScienceCe
 Next steps include:
 
  - [x] Create project from the Cookiecutter template.
- - [ ] Create a virtual environment to work in an isolated Python installation.
- - [ ] Install [pre-commit](https://pre-commit.com/) hooks.
- - [ ] Keep either [`.gitlab-ci.yml`](https://docs.gitlab.com/ee/ci/yaml/gitlab_ci_yaml.html) or [`.github/`](https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python), according to your Git hosting platform.
- - [ ] Update `authors` and `description`, in `pyproject.toml`.
+ - [x] Create a virtual environment to work in an isolated Python installation.
+ - [x] Install [pre-commit](https://pre-commit.com/) hooks.
+ - [x] Keep either [`.gitlab-ci.yml`](https://docs.gitlab.com/ee/ci/yaml/gitlab_ci_yaml.html) or [`.github/`](https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python), according to your Git hosting platform.
+ - [x] Update `authors` and `description`, in `pyproject.toml`.
  - [ ] Add development and installation dependencies in `pyproject.toml`, with permissive version constraints.
  - [ ] Add a `LICENSE` file, if applicable. This is *highly recommended* if the project is open source.
  - [ ] Add a [`CITATION.cff`](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files), to ease citation of your work.

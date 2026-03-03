@@ -5,11 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "forest_browning"
 authors = [
-    # TODO configure authors
-    # { name = "Jane Smith", email = "jane.smith@example.com" },
-    # { name = "John Doe", email = "john.doe@example.com" },
+    { name = "Samantha Biegel", email = "samantha.biegel@ai.ethz.ch" },
 ]
-description = ""
+description = "This project generates Switzerland-wide anomaly maps for Sentinel-2 observations indicating forest browning."
 readme = "README.md"
 requires-python = "~=3.12.0"
 dependencies = [
