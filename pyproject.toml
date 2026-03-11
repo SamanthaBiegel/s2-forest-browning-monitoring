@@ -11,7 +11,16 @@ description = "This project generates Switzerland-wide anomaly maps for Sentinel
 readme = "README.md"
 requires-python = "~=3.12.0"
 dependencies = [
-    # TODO configure install dependencies
+    "numpy >= 1.26.3, < 2.0.0",
+    "matplotlib >= 3.10.0, < 4.0.0",
+    "torch ~= 2.5.1",
+    "tensorboard >= 2.19.0, < 3.0.0",
+    "scikit-learn >= 1.6.1, < 2.0.0",
+    "tqdm >= 4.67.1, < 5.0.0",
+    "zarr >= 3.0.8, < 3.1",
+    "pandas >= 2.2.3, < 3.0.0",
+    "rasterio ~= 1.4.0",
+    "geopandas ~= 1.1.2",
 ]
 dynamic = ["version"]
 
@@ -31,10 +40,26 @@ target-version = "py312"
 line-length = 88
 
 [tool.ruff.lint]
-extend-select = ["I"]
+extend-select = ["I", "D", "ERA"]
 
 [tool.ruff.lint.isort]
 lines-after-imports = 2
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu124", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu124", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
