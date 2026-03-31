@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "forest_browning"
 authors = [
     { name = "Samantha Biegel", email = "samantha.biegel@ai.ethz.ch" },
+    { name = "David Brüggemann", email = "david.brueggemann@datascience.ch" },
 ]
 description = "This project generates Switzerland-wide anomaly maps for Sentinel-2 observations indicating forest browning."
 readme = "README.md"

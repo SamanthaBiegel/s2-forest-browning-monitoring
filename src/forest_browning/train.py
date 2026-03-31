@@ -9,22 +9,29 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.metrics import d2_pinball_score
+from torch import Tensor
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
 from forest_browning.dataset import MEANS, STDS, ZarrDataset
 from forest_browning.mlp import MLPWithEmbeddings
-
 
 DEFAULT_NUM_EPOCHS = 20
 DEFAULT_LR = 0.005
 DEFAULT_LR_DECAY_RATE = 0.01
 DEFAULT_BATCH_SIZE = 1024
 DEFAULT_DEVICE = "cuda"
+DEFAULT_SEED = 42
+DEFAULT_FEATURES = ZarrDataset.all_features
 
 
-def double_logistic_function(t, params):
+def parse_features_arg(value: str) -> list[str]:
+    """Parse comma-separated feature names from CLI into a list."""
+    return [feature.strip() for feature in value.split(",") if feature.strip()]
+
+
+def double_logistic_function(t: Tensor, params: Tensor) -> Tensor:
     """Double logistic function to model NDVI time series, parameterized by 6 parameters.
 
     Args:
@@ -48,7 +55,14 @@ def double_logistic_function(t, params):
     return (M - m) * (sigmoid_sos_mat - sigmoid_sen_eos) + m
 
 
-def objective_pinball(params, t, ndvi, nan_mask, alpha=0.5, weights=None):
+def objective_pinball(
+    params: Tensor,
+    t: Tensor,
+    ndvi: Tensor,
+    nan_mask: Tensor,
+    alpha: float = 0.5,
+    weights: Tensor | None = None,
+) -> Tensor:
     """Pinball loss for quantile regression.
 
     Args:
@@ -71,13 +85,13 @@ def objective_pinball(params, t, ndvi, nan_mask, alpha=0.5, weights=None):
     return torch.mean(loss[~nan_mask])
 
 
-def train(args):
+def train(args: argparse.Namespace) -> None:
     """Train the model.
 
     Args:
         args (argparse.Namespace): Command line arguments.
     """
-    torch.manual_seed(1)
+    torch.manual_seed(args.seed)
 
     run_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     writer = SummaryWriter(log_dir=f"{args.output_dir}/runs/{run_id}")
@@ -92,16 +106,14 @@ def train(args):
         args.data_path,
         args.features,
         batch_size=args.batch_size,
-        chunk_size=8192,
+        include_ndsi=False,
         shuffle_chunks=True,
-        seed=42,
+        seed=args.seed,
     )
     missingness = ds.missingness
     missingness = torch.from_numpy(missingness).to(args.device)
     t = torch.from_numpy(ds.t).float().to(args.device)
 
-    if isinstance(args.features, str):
-        args.features = args.features.split(",")
     print("Using features: {}".format(ds.features))
 
     loader = DataLoader(
@@ -371,14 +383,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--features",
-        type=str,
-        default="dem,slope,easting,northing,twi,tri,mean_curv,profile_curv,plan_curv,roughness,median_forest_height,forest_mix_rate,tree_species,habitat",
+        type=parse_features_arg,
+        default=DEFAULT_FEATURES,
     )
     parser.add_argument("--num_epochs", type=int, default=DEFAULT_NUM_EPOCHS)
     parser.add_argument("--lr", type=float, default=DEFAULT_LR)
     parser.add_argument("--lr_decay_rate", type=float, default=DEFAULT_LR_DECAY_RATE)
     parser.add_argument("--batch_size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--device", type=str, default=DEFAULT_DEVICE)
+    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     args = parser.parse_args()
 
     train(args)

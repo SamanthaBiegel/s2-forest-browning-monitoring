@@ -1,11 +1,12 @@
 """A dataset for loading Zarr data, with support for chunked streaming and shuffling."""
 
+from collections.abc import Iterator
+
 import numpy as np
 import pandas as pd
 import torch
 import zarr
 from torch.utils.data import IterableDataset
-
 
 # Rescale input (stats obtained from full dataset)
 MEANS = {
@@ -60,15 +61,15 @@ class ZarrDataset(IterableDataset):
 
     def __init__(
         self,
-        file_path,
-        features=None,
-        chunked=True,
-        include_ndsi=False,
-        batch_size=512,
-        chunk_size=8192,
-        shuffle_chunks=True,
-        seed=42,
-    ):
+        file_path: str,
+        features: list[str] | None = None,
+        chunked: bool = True,
+        include_ndsi: bool = True,
+        batch_size: int = 512,
+        chunk_size: int = 8192,
+        shuffle_chunks: bool = True,
+        seed: int = 42,
+    ) -> None:
         """Initialize the dataset.
 
         Args:
@@ -94,7 +95,7 @@ class ZarrDataset(IterableDataset):
         store = zarr.open(self.file_path, mode="r", zarr_format=3)
 
         self.ndvi = store["ndvi"]
-        self.feat = store["merged_features"]
+        self.feat_array = store["merged_features"]
         self.mapping_features = store["merged_features"].attrs["feature_columns"]
         self.missingness = store["missingness"][:]
         if self.include_ndsi:
@@ -128,7 +129,7 @@ class ZarrDataset(IterableDataset):
         self.nr_tree_species = 17
         self.nr_habitats = 46
 
-    def set_epoch(self, epoch):
+    def set_epoch(self, epoch: int) -> None:
         """Set the epoch for reproducible shuffling. Should be called at the beginning of each epoch in training.
 
         Args:
@@ -137,7 +138,7 @@ class ZarrDataset(IterableDataset):
         self.epoch = epoch
         self.rng = np.random.default_rng(self.base_seed + epoch)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
         """Yield batches of data.
 
         Yields:
@@ -167,7 +168,7 @@ class ZarrDataset(IterableDataset):
 
         store = zarr.open(self.file_path, mode="r", zarr_format=3)
         self.ndvi = store["ndvi"]
-        self.feat = store["merged_features"]
+        self.feat_array = store["merged_features"]
         if self.include_ndsi:
             self.ndsi = store["ndsi"]
 
@@ -186,7 +187,7 @@ class ZarrDataset(IterableDataset):
             stop = min((cid + 1) * self.chunk_size, self.dataset_len)
 
             ndvi_chunk = np.asarray(self.ndvi[start:stop])
-            feat_chunk = np.asarray(self.feat[start:stop])
+            feat_chunk = np.asarray(self.feat_array[start:stop])
             if self.include_ndsi:
                 ndsi_chunk = np.asarray(self.ndsi[start:stop])
 
@@ -214,7 +215,7 @@ class ZarrDataset(IterableDataset):
                         torch.from_numpy(feat_chunk[i:j]).float(),
                     )
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, ...]:
         """Get the NDVI, NDSI (if included), and features for a single sample at the specified index.
 
         Args:
@@ -224,7 +225,7 @@ class ZarrDataset(IterableDataset):
             tuple: A tuple containing the NDVI, NDSI (if included), and features for the specified index.
         """
         ndvi = torch.from_numpy(self.ndvi[idx])
-        features = torch.from_numpy(self.feat[idx]).float()
+        features = torch.from_numpy(self.feat_array[idx]).float()
 
         if self.include_ndsi:
             ndsi = torch.from_numpy(self.ndsi[idx])
@@ -232,7 +233,7 @@ class ZarrDataset(IterableDataset):
 
         return ndvi, features
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return total number of minibatches if chunked, or dataset len if not."""
         if self.chunked:
             return self.n_batches

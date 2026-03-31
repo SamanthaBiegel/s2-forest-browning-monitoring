@@ -1,14 +1,16 @@
 """A script to filter and shuffle NDVI/NDSI Zarr datasets for training."""
 
 import argparse
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import zarr
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 
-class ShuffleDataset:
+class ShuffleDataset(Dataset):
     """A dataset for shuffling and filtering NDVI/NDSI Zarr datasets.
 
     Attributes:
@@ -21,7 +23,7 @@ class ShuffleDataset:
         n_features (int): Number of features in the merged features array.
     """
 
-    def __init__(self, file_path):
+    def __init__(self, file_path: str) -> None:
         """Initializes the ShuffleDataset by loading the NDVI, NDSI, and merged features arrays from the specified Zarr store.
 
         Args:
@@ -37,7 +39,9 @@ class ShuffleDataset:
         self.timesteps = self.ndvi.shape[1]
         self.n_features = self.feat_array.shape[1]
 
-    def __getitem__(self, idx):
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any], npt.NDArray[Any]]:
         """Returns the NDVI, NDSI, and merged features for the given index.
 
         Args:
@@ -51,7 +55,7 @@ class ShuffleDataset:
         features = self.feat_array[idx]
         return ndvi, ndsi, features
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Returns the total number of samples in the dataset.
 
         Returns:
@@ -61,8 +65,13 @@ class ShuffleDataset:
 
 
 def write_shuffled_copy(
-    dataloader, target_zarr, n_samples, n_timesteps, n_features, chunk_rows=8192
-):
+    dataloader: DataLoader,
+    target_zarr: str,
+    n_samples: int,
+    n_timesteps: int,
+    n_features: int,
+    chunk_rows: int = 8192,
+) -> None:
     """A function to write a shuffled and filtered copy of the NDVI/NDSI datasets to a new Zarr store.
 
     Args:
