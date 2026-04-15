@@ -1,5 +1,7 @@
 """Add tree species information from tree species map to the dataset."""
 
+import os
+
 import numpy as np
 import rasterio
 import zarr
@@ -13,12 +15,15 @@ from forest_browning.config import (
     REF_TRANSFORM,
     REF_WIDTH,
     TEMPORAL_DATASET_ZARR,
+    TREE_SPECIES_PATH,
 )
 
+if not os.path.exists(TREE_SPECIES_PATH):
+    raise RuntimeError(
+        f"Tree species map not found at {TREE_SPECIES_PATH}. See README for instructions on how to download it."
+    )
 
-tree_species_path = "/data/archive_restricted/treespecies_koch_2024/data_share_FORWARDS/tree_species_map_aoa_raster.tif"
-
-with rasterio.open(tree_species_path) as src:
+with rasterio.open(TREE_SPECIES_PATH) as src:
     src_crs = src.crs
     src_transform = src.transform
     src_dtype = "uint8"

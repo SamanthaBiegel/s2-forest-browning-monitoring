@@ -1,7 +1,6 @@
 """Defines the MLPWithEmbeddings model, which is a multilayer perceptron that takes in numerical features as well as categorical species and habitat information. The features are embedded and concatenated with the numerical features before being passed through the MLP. Optionally includes a skip connection."""
 
 from collections import OrderedDict
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -21,7 +20,7 @@ class MLPWithEmbeddings(nn.Module):
     def __init__(
         self,
         d_num: int,
-        d_out: Optional[int],
+        d_out: int | None,
         n_blocks: int,
         d_block: int,
         dropout: float,
@@ -35,7 +34,7 @@ class MLPWithEmbeddings(nn.Module):
 
         Args:
             d_num (int): Dimensionality of the numerical features.
-            d_out (Optional[int]): Dimensionality of the output layer.
+            d_out (int | None): Dimensionality of the output layer.
             n_blocks (int): Number of blocks in the MLP.
             d_block (int): Dimensionality of each block in the MLP.
             dropout (float): Dropout probability.

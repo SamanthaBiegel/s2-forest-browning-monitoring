@@ -4,21 +4,43 @@ Code for **Country-wide, high-resolution monitoring of forest browning with Sent
 
 Authors: Samantha Biegel, David Brüggemann, Francesco Grossi, Michele Volpi, Konrad Schindler, Benjamin Stocker
 
+![teaser](https://raw.githubusercontent.com/brdav/s2-forest-browning-monitoring/main/docs/teaser.jpg)
+
+This project generates Switzerland-wide, 10 m resolution NDVI anomaly maps from Sentinel-2 imagery to monitor forest browning events (drought stress, beetle outbreaks, storm damage, fire, and clear-cuts). A neural network learns the expected seasonal vegetation cycle per pixel; deviations from this expectation are flagged as anomalies.
+
+---
 
 ## Repository contents
 
-This repository contains:
-- the `forest_browning` Python package (`src/forest_browning`),
-    - `src/forest_browning/train.py`: model training
-    - `src/forest_browning/inference.py`: inference/anomaly outputs
-    - `src/forest_browning/dataset.py`: dataset utilities
-    - `src/forest_browning/mlp.py`: model architecture
-    - `src/forest_browning/config.py`: constants
-    - `src/forest_browning/data_processing/`: dataset creation and feature engineering
-- analysis notebook (`notebooks/`),
-    - `notebooks/plot_results.ipynb`: generates figures in `figs/`
-- event polygons and summary CSVs (`data/`),
-- model checkpoints (`checkpoints/`).
+```text
+s2-forest-browning-monitoring/
+├── src/forest_browning/
+│   ├── config.py              # path constants (configured via env var)
+│   ├── dataset.py             # dataset utilities
+│   ├── mlp.py                 # autoencoder architecture
+│   ├── train.py               # model training
+│   ├── inference.py           # anomaly score generation
+│   ├── shuffle_train_data.py  # pre-shuffle training data
+│   ├── rechunk_output.py      # reformat output for spatial access
+│   └── data_processing/       # 12-step dataset creation pipeline
+├── notebooks/
+│   └── plot_results.ipynb     # reproduces all figures → figs/
+├── data/
+│   └── event_polygons/        # labelled disturbance event polygons
+├── checkpoints/
+│   └── encoder.pt             # pre-trained model checkpoint
+├── tests/
+├── pyproject.toml
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Requirements
+
+- Python 3.12 or later
+- [uv](https://docs.astral.sh/uv/) **or** plain `pip`
 
 ---
 
@@ -31,100 +53,137 @@ cd s2-forest-browning-monitoring
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-
-pip install -r requirements.txt -e . --group dev
-
-pre-commit install
-pre-commit run --all-files
+pip install -r requirements.txt -e .
 ```
+
+Alternatively, use `uv`:
+
+```sh
+uv sync --group dev
+source .venv/bin/activate
+```
+
+---
+
+## Configuration
+
+Before running any pipeline step, set the environment variable `FOREST_BROWNING_DATA_DIR`
+to point to your local data storage:
+
+```sh
+export FOREST_BROWNING_DATA_DIR=/your/local/data/dir
+```
+
+Note: the tree species map used in this project is not publicly distributed in this repository.
+Please request access via
+https://www.envidat.ch/#/metadata/tree-species-map-of-switzerland
+and place the obtained `.tif` raster in `FOREST_BROWNING_DATA_DIR`.
 
 ---
 
 ## Dataset creation
 
-The processed dataset used by this project is created in the `data_processing/` folder.
+The dataset building pipeline consists of 12 steps orchestrated by a runner module. The individual step scripts are in `src/forest_browning/data_processing/` with digit prefixes (e.g., `1_extract_swisstopo_dataset.py`); the runner invokes them sequentially and exits if any step fails.
 
-### Run processing pipeline in order
+**Activate the virtual environment first:**
 
-```sh
-python forest_browning/data_processing/1_extract_swisstopo_dataset.py
-python forest_browning/data_processing/2_transpose_swisstopo_dataset.py
-python forest_browning/data_processing/3_add_dates.py
-python forest_browning/data_processing/4_load_dem_2m.py
-python forest_browning/data_processing/5_dem_2m_zarr_to_geotiff.py
-python forest_browning/data_processing/6_create_dem_features.py
-python forest_browning/data_processing/7_add_vegetation_height.py
-python forest_browning/data_processing/8_add_tree_species.py
-python forest_browning/data_processing/9_add_habitat.py
-python forest_browning/data_processing/10_add_missingness.py
-python forest_browning/data_processing/11_add_forest_mix_rate.py
-python forest_browning/data_processing/12_merge_features.py
-```
-
-### Output dataset
-
-The final output dataset is a Zarr dataset with two versions:
-- `ndvi_dataset_temporal.zarr`: includes the full NDVI time series with chunking along the temporal dimension (shape: `(num_forest_pixels, num_timesteps)`) as well as the feature arrays
-- `ndvi_dataset_spatial.zarr`: includes the full NDVI time series with chunking along the spatial dimension (shape: `(num_timesteps, num_forest_pixels)`)
-
-A forest mask is also generated as a NumPy array (`forest_mask.npy`), which is used to map between the 1D dataset and the original 2D spatial layout.
-
-Adjust the paths in `src/forest_browning/config.py` to point to your local output locations for these datasets.
-
----
-
-## Running this project
-
-From `s2-forest-browning-monitoring`:
 ```sh
 source .venv/bin/activate
 ```
 
-First pre-shuffle the training dataset:
+### Option 1: Use the Python module
 
 ```sh
-python -m forest_browning.shuffle_train_data --input_zarr /path/to/ndvi_dataset_temporal.zarr --output_zarr /path/to/ndvi_dataset_filtered_shuffled.zarr
+python -m forest_browning.data_processing.pipeline
 ```
 
-Then run training to generate vegetation cycle parameters:
+### Option 2: Run a single step manually
+
+To run one step in isolation:
 
 ```sh
-python -m forest_browning.train --data_path /path/to/ndvi_dataset_filtered_shuffled.zarr --output_dir /path/to/checkpoints
+python src/forest_browning/data_processing/1_extract_swisstopo_dataset.py
 ```
 
-Finally, run inference to generate anomaly scores:
+### Output dataset
 
-```sh
-python -m forest_browning.inference --model_checkpoint checkpoints/encoder.pt --data_path /path/to/ndvi_dataset_temporal.zarr --output_dir /path/to/ndvi_dataset_temporal.zarr
-```
+The pipeline produces two Zarr datasets:
 
-To obtain anomaly scores in the spatial format for fast per-day retrieval, run:
+| File | Chunking | Use case |
+|------|----------|----------|
+| `ndvi_dataset_temporal.zarr` | `(num_forest_pixels, num_timesteps)` | Training and inference |
+| `ndvi_dataset_spatial.zarr` | `(num_timesteps, num_forest_pixels)` | Fast per-day map retrieval |
 
-```sh
-python -m forest_browning.rechunk_output.py --source_zarr /path/to/ndvi_dataset_temporal.zarr --target_zarr /path/to/ndvi_dataset_spatial.zarr
-```
-
-For figure reproduction, run:
-
-- `notebooks/plot_results.ipynb`
-
-Figures are saved to `figs/`.
+A forest mask (`forest_mask.npy`) maps between the 1-D pixel index used in the datasets and the original 2-D spatial grid.
 
 ---
 
-## Project structure
+## Training and inference
 
-```text
-s2-forest-browning-monitoring/
-├── src/
-│   └── forest_browning/
-├── notebooks/
-├── data/
-│   └── event_polygons/
-├── checkpoints/
-├── figs/
-├── tests/
-├── pyproject.toml
-├── requirements.txt
-└── README.md
+Activate the virtual environment first:
+
+```sh
+source .venv/bin/activate
 ```
+
+**Step 1 – Pre-shuffle the training dataset:**
+
+```sh
+python -m forest_browning.shuffle_train_data \
+    --input_zarr /path/to/ndvi_dataset_temporal.zarr \
+    --output_zarr /path/to/ndvi_dataset_filtered_shuffled.zarr
+```
+
+**Step 2 – Train the neural network:**
+
+```sh
+python -m forest_browning.train \
+    --data_path /path/to/ndvi_dataset_filtered_shuffled.zarr \
+    --output_dir /path/to/work/dir
+```
+
+**Step 3 – Run inference to generate anomaly scores:**
+
+This step will add the anomaly scores as an additional layer to the supplied zarr file. Adapt `--encoder_path` path if you want to run a model trained in step 2.
+
+```sh
+python -m forest_browning.inference \
+    --encoder_path checkpoints/encoder.pt \
+    --data_path /path/to/ndvi_dataset_temporal.zarr \
+    --output_path /path/to/ndvi_dataset_temporal.zarr
+```
+
+**Step 4 – Rechunk output for spatial access:**
+
+```sh
+python -m forest_browning.rechunk_output \
+    --source_zarr /path/to/ndvi_dataset_temporal.zarr \
+    --target_zarr /path/to/ndvi_dataset_spatial.zarr
+```
+
+---
+
+## Reproducing figures
+
+Open and run `notebooks/plot_results.ipynb`. Figures are saved to `figs/`.
+
+---
+
+## Citation
+
+If you use this code or data in your research, please cite:
+
+```bibtex
+@proceedings{biegel2025forestbrowning,
+  title   = {Country-wide, high-resolution monitoring of forest browning with {Sentinel-2}},
+  author  = {Biegel, Samantha and Br{\"u}ggemann, David and Grossi, Francesco and Volpi, Michele and Schindler, Konrad and Stocker, Benjamin},
+  booktitle = {ISPRS Annals of the Photogrammetry, Remote Sensing and Spatial Information Sciences},
+  year    = {2026},
+}
+```
+
+---
+
+## License
+
+This project is licensed under the terms of the [LICENSE](LICENSE) file.

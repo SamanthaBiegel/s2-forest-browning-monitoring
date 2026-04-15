@@ -1,13 +1,11 @@
 """Transpose NDVI anomaly data from (N, T) to (T, N) using Dask for efficient processing."""
 
 import argparse
-from typing import Optional
 
 import dask
 import dask.array as da
 import zarr
 from dask.distributed import Client, LocalCluster
-
 
 # Set global Dask config for memory spilling
 dask.config.set({"distributed.worker.memory.spill-compression": "lz4"})
@@ -18,7 +16,7 @@ def transpose_zarr(
     target_zarr: str,
     component: str = "ndvi",
     n_slices: int = 3,
-    client: Optional[Client] = None,
+    client: Client | None = None,
 ) -> None:
     """Transposes a Zarr array from (N, T) to (T, N) in chunks to manage memory.
 

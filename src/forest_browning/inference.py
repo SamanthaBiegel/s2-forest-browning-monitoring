@@ -1,6 +1,8 @@
 """Run inference using a trained encoder to predict seasonal NDVI parameters and anomalies for each pixel in the dataset."""
 
 import argparse
+from collections.abc import Iterator
+from typing import Any
 
 import numpy as np
 import torch
@@ -8,16 +10,12 @@ import zarr
 from tqdm import tqdm
 
 from forest_browning.config import CHUNK_SIZE, INVALID, NO_COVERAGE
-from forest_browning.dataset import ZarrDataset
+from forest_browning.dataset import MEANS, STDS, ZarrDataset
 from forest_browning.mlp import MLPWithEmbeddings
-from forest_browning.train import (
-    MEANS,
-    STDS,
-    double_logistic_function,
-)
+from forest_browning.train import double_logistic_function
 
 
-def rectify_parameters(params):
+def rectify_parameters(params: torch.Tensor) -> torch.Tensor:
     """Rectify the predicted parameters to ensure they are in a valid range and order for the double logistic function.
 
     Args:
@@ -40,7 +38,7 @@ def rectify_parameters(params):
     return rec_params
 
 
-def chunk_iterator(zarr_array, chunk_size):
+def chunk_iterator(zarr_array: Any, chunk_size: int) -> Iterator[slice]:
     """Yield slices for iterating over a Zarr array in chunks of a specified size.
 
     Args:
@@ -55,7 +53,7 @@ def chunk_iterator(zarr_array, chunk_size):
         yield slice(i, min(i + chunk_size, n))
 
 
-def inference(args):
+def inference(args: argparse.Namespace) -> None:
     """Run inference using a trained encoder to predict seasonal NDVI parameters and anomalies for each pixel in the dataset.
 
     Args:
@@ -75,7 +73,7 @@ def inference(args):
         n_habitats=ds.nr_habitats,
         habitat_emb_dim=8,
     ).to(args.device)
-    encoder.load_state_dict(torch.load(args.encoder_path))
+    encoder.load_state_dict(torch.load(args.encoder_path, map_location=args.device))
     encoder.eval()
 
     means_pt = (
@@ -246,7 +244,7 @@ def inference(args):
             is_nan = np.isnan(ndvi)
             is_snow = (ndsi >= 4300) & (ndsi <= 10000)
 
-            valid_mask = ~(is_unavailable | is_masked | is_outlier | is_nan) | is_snow
+            valid_mask = ~(is_unavailable | is_masked | is_outlier | is_nan | is_snow)
             print("Valid pixels:", np.sum(valid_mask), "out of", valid_mask.size)
 
             ndvi = ndvi / 10000.0
@@ -315,7 +313,7 @@ def inference(args):
             anomalies = np.zeros_like(ndvi, dtype=np.int8)
             anomalies[is_lower_anomaly] = -1
             anomalies[is_upper_anomaly] = 1
-            anomalies[is_masked | is_outlier | is_nan] = -128 | is_snow
+            anomalies[is_masked | is_outlier | is_nan | is_snow] = -128
             anomalies[is_unavailable] = 127
 
             print("Anomaly distribution:", np.unique(anomalies, return_counts=True))
@@ -341,7 +339,7 @@ def inference(args):
             above = (ndvi > ndvi_upper) & valid_mask
             score[below] = -(ndvi_lower[below] - ndvi[below]) / iqr[below]
             score[above] = (ndvi[above] - ndvi_upper[above]) / iqr[above]
-            score[is_masked | is_outlier | is_nan] = np.nan | is_snow
+            score[is_masked | is_outlier | is_nan | is_snow] = np.nan
             score[is_unavailable] = np.nan
 
             root_params["anomaly_scores"][slc, :] = score
@@ -357,11 +355,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--output_path", type=str, required=True)
     parser.add_argument("--data_path", type=str, required=True)
-    parser.add_argument(
-        "--features",
-        type=str,
-        default="dem,slope,easting,northing,twi,tri,mean_curv,profile_curv,plan_curv,roughness,median_forest_height,forest_mix_rate,tree_species,habitat",
-    )
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
@@ -369,7 +362,6 @@ if __name__ == "__main__":
     print("Using encoder:", args.encoder_path)
     print("Output path:", args.output_path)
     print("Data path:", args.data_path)
-    print("Using features:", args.features)
     print("Using device:", args.device)
 
     inference(args)

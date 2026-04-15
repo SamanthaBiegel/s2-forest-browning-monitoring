@@ -9,3 +9,6 @@
 
 # OSX-specific
 .DS_Store
+
+# Virtual environment
+.venv/
