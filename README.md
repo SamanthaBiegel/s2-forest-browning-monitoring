@@ -1,10 +1,12 @@
 # Sentinel-2 Forest Browning Monitoring
 
-Code for **Country-wide, high-resolution monitoring of forest browning with Sentinel-2**
+Code for **Country-wide, high-resolution monitoring of forest browning with Sentinel-2** (ISPRS Congress 2026)
 
-Authors: Samantha Biegel, David Brüggemann, Francesco Grossi, Michele Volpi, Konrad Schindler, Benjamin Stocker
+👥 **Authors:** Samantha Biegel, David Brüggemann, Francesco Grossi, Michele Volpi, Konrad Schindler, Benjamin Stocker<br>
+🌐 **Website:** [samanthabiegel.github.io/forestbrowning](https://samanthabiegel.github.io/forestbrowning/)<br>
+📄 **Paper:** [arXiv 2604.02074](https://arxiv.org/abs/2604.02074)
 
-![teaser](https://raw.githubusercontent.com/brdav/s2-forest-browning-monitoring/main/docs/teaser.jpg)
+![teaser](docs/teaser.jpg)
 
 This project generates Switzerland-wide, 10 m resolution NDVI anomaly maps from Sentinel-2 imagery to monitor forest browning events (drought stress, beetle outbreaks, storm damage, fire, and clear-cuts). A neural network learns the expected seasonal vegetation cycle per pixel; deviations from this expectation are flagged as anomalies.
 
