@@ -84,17 +84,28 @@ def create_hydrological_features_10m(dem10m_path):
 
 
 def create_northing_easting(aspect_path, northing_path, easting_path):
-    """Create northing and easting features from aspect using gdal_calc."""
-    run_cmd(
-        f"gdal_calc.py -A {aspect_path} --outfile={northing_path} "
-        f'--calc="-cos(A * pi / 180)" --NoDataValue=-9999 --type=Float32 '
-        f'--co="COMPRESS=DEFLATE" --co="TILED=YES" --co="BIGTIFF=YES" --overwrite --quiet'
-    )
-    run_cmd(
-        f"gdal_calc.py -A {aspect_path} --outfile={easting_path} "
-        f'--calc="-sin(A * pi / 180)" --NoDataValue=-9999 --type=Float32 '
-        f'--co="COMPRESS=DEFLATE" --co="TILED=YES" --co="BIGTIFF=YES" --overwrite --quiet'
-    )
+    """Create northing and easting features from aspect."""
+    chunk_rows = 512
+    with rasterio.open(aspect_path) as src:
+        nodata = src.nodata if src.nodata is not None else -9999
+        profile = src.profile.copy()
+        profile.update(
+            dtype=np.float32, nodata=-9999, compress="deflate",
+            tiled=True, blockxsize=512, blockysize=512, bigtiff="YES",
+        )
+        height, width = src.height, src.width
+        with rasterio.open(northing_path, "w", **profile) as n_dst, \
+                rasterio.open(easting_path, "w", **profile) as e_dst:
+            for row_off in range(0, height, chunk_rows):
+                window = rasterio.windows.Window(0, row_off, width, min(chunk_rows, height - row_off))
+                aspect = src.read(1, window=window).astype(np.float32)
+                valid = aspect != nodata
+                northing = np.full_like(aspect, -9999)
+                easting = np.full_like(aspect, -9999)
+                northing[valid] = -np.cos(aspect[valid] * np.pi / 180)
+                easting[valid] = -np.sin(aspect[valid] * np.pi / 180)
+                n_dst.write(northing, 1, window=window)
+                e_dst.write(easting, 1, window=window)
 
 
 def write_features_to_zarr(tmpdir, forest_mask, zarr_path):

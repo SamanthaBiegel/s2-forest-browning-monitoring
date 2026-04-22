@@ -1,5 +1,7 @@
 """Convert full DEM at 2m resolution from Zarr to Cloud-Optimized GeoTIFF."""
 
+import os
+
 import rasterio
 import zarr
 from affine import Affine
@@ -10,7 +12,8 @@ from forest_browning.config import DATA_DIR, REF_BBOX
 
 
 if __name__ == "__main__":
-    root = zarr.open(f"{DATA_DIR}/full_dem_2m.zarr", mode="r", zarr_format=3)
+    os.makedirs(f"{DATA_DIR}/tmp", exist_ok=True)
+    root = zarr.open(f"{DATA_DIR}/tmp/full_dem_2m.zarr", mode="r", zarr_format=3)
 
     dem2m = root["dem_2m"]
 
@@ -36,7 +39,7 @@ if __name__ == "__main__":
         "BIGTIFF": "YES",
     }
 
-    cog_path = f"{DATA_DIR}/dem2m.tif"
+    cog_path = f"{DATA_DIR}/tmp/dem2m.tif"
     with rasterio.open(cog_path, "w", **profile) as dst:
         nchunks_y = (ny + chunk_h - 1) // chunk_h
         nchunks_x = (nx + chunk_w - 1) // chunk_w

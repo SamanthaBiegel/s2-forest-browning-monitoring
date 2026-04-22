@@ -1,6 +1,7 @@
 """Set constants."""
 
 import os
+from pathlib import Path
 
 from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
@@ -17,6 +18,8 @@ TEMPORAL_DATASET_ZARR = f"{DATA_DIR}/ndvi_dataset_temporal.zarr"
 SPATIAL_DATASET_ZARR = f"{DATA_DIR}/ndvi_dataset_spatial.zarr"
 FOREST_MASK = f"{DATA_DIR}/forest_mask.npy"
 DASK_LOCAL_DIRECTORY = f"{DATA_DIR}/dask_worker_space"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+REPO_DATA_DIR = PROJECT_ROOT / "data"
 
 TREE_SPECIES_PATH = f"{DATA_DIR}/tree_species_map_aoa_raster.tif"
 

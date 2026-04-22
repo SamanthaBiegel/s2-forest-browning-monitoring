@@ -5,7 +5,7 @@ import pystac_client
 import requests
 import zarr
 
-from forest_browning.config import SERVICE_URL, TEMPORAL_DATASET_ZARR
+from forest_browning.config import SERVICE_URL, TEMPORAL_DATASET_ZARR, REF_BBOX_4326
 
 
 def get_swisstopo_sentinel_dates(start="2017-04-01", end="2025-08-31"):
@@ -15,10 +15,8 @@ def get_swisstopo_sentinel_dates(start="2017-04-01", end="2025-08-31"):
     service.add_conforms_to("COLLECTIONS")
     service.add_conforms_to("ITEM_SEARCH")
 
-    bbox_swiss_4326 = [5.70, 45.8, 10.6, 47.95]
-
     item_search = service.search(
-        bbox=bbox_swiss_4326,
+        bbox=REF_BBOX_4326,
         datetime=f"{start}/{end}",
         collections=["ch.swisstopo.swisseo_s2-sr_v100"],
     )

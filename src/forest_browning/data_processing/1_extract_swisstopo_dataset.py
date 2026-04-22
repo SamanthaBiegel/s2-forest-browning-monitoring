@@ -15,6 +15,7 @@ from forest_browning.config import (
     REF_BBOX_4326,
     SERVICE_URL,
     SPATIAL_DATASET_ZARR,
+    FOREST_MASK
 )
 
 
@@ -101,6 +102,7 @@ def get_forest_mask():
 forest_mask, ref_meta = get_forest_mask()
 print("Reference raster metadata:")
 print(ref_meta)
+np.save(FOREST_MASK, forest_mask)
 
 # Build index mapping from forest pixels in the full reference raster to 1D flat indices
 forest_flat_indices = np.flatnonzero(forest_mask == 1)

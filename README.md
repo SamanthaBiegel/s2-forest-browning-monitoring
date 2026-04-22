@@ -43,10 +43,56 @@ s2-forest-browning-monitoring/
 
 - Python 3.12 or later
 - [uv](https://docs.astral.sh/uv/) **or** plain `pip`
+- GDAL CLI tools (`gdalwarp`, `gdaldem`, `gdal_calc.py`)
+- TauDEM (`d8flowdir`, `aread8`) with MPI
 
 ---
 
 ## Installation
+
+### GDAL
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install gdal-bin
+```
+
+**macOS:**
+```bash
+brew install gdal
+```
+
+**Verify:**
+```bash
+gdalwarp --version
+```
+
+### TauDEM
+
+Step 6 of the data pipeline uses [TauDEM](https://hydrology.usu.edu/taudem/taudem5/) for hydrological feature computation. TauDEM is a compiled binary and requires an MPI implementation.
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install libgdal-dev libopenmpi-dev cmake git
+git clone https://github.com/dtarb/TauDEM.git
+cmake -S TauDEM/src -B TauDEM/build && cmake --build TauDEM/build -j4
+sudo cmake --install TauDEM/build
+```
+
+**macOS:**
+```bash
+brew install open-mpi cmake
+git clone https://github.com/dtarb/TauDEM.git
+cmake -S TauDEM/src -B TauDEM/build && cmake --build TauDEM/build -j4
+sudo cmake --install TauDEM/build
+```
+
+**Verify:**
+```bash
+which d8flowdir && mpiexec --version
+```
+
+### Python environment
 
 ```sh
 git clone git@github.com:SamanthaBiegel/s2-forest-browning-monitoring.git
@@ -76,10 +122,10 @@ to point to your local data storage:
 export FOREST_BROWNING_DATA_DIR=/your/local/data/dir
 ```
 
-Note: the tree species map used in this project is not publicly distributed in this repository.
-Please request access via
-https://www.envidat.ch/#/metadata/tree-species-map-of-switzerland
-and place the obtained `.tif` raster in `FOREST_BROWNING_DATA_DIR`.
+Note: two external datasets must be downloaded manually and placed in `FOREST_BROWNING_DATA_DIR`:
+
+- **Tree species map:** request access via https://www.envidat.ch/#/metadata/tree-species-map-of-switzerland and place the obtained `.tif` raster in `FOREST_BROWNING_DATA_DIR`.
+- **Habitat map:** download from https://www.envidat.ch/#/metadata/the-habitat-map-of-switzerland-v1-1 and place `habitatmap_v1_1_20241025.tif` in `FOREST_BROWNING_DATA_DIR`.
 
 ---
 
