@@ -5,7 +5,7 @@ import pystac_client
 import requests
 import zarr
 
-from forest_browning.config import SERVICE_URL, TEMPORAL_DATASET_ZARR, REF_BBOX_4326
+from forest_browning.config import REF_BBOX_4326, SERVICE_URL, TEMPORAL_DATASET_ZARR
 
 
 def get_swisstopo_sentinel_dates(start="2017-04-01", end="2025-08-31"):

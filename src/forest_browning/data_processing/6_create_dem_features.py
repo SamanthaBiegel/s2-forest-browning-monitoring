@@ -90,14 +90,23 @@ def create_northing_easting(aspect_path, northing_path, easting_path):
         nodata = src.nodata if src.nodata is not None else -9999
         profile = src.profile.copy()
         profile.update(
-            dtype=np.float32, nodata=-9999, compress="deflate",
-            tiled=True, blockxsize=512, blockysize=512, bigtiff="YES",
+            dtype=np.float32,
+            nodata=-9999,
+            compress="deflate",
+            tiled=True,
+            blockxsize=512,
+            blockysize=512,
+            bigtiff="YES",
         )
         height, width = src.height, src.width
-        with rasterio.open(northing_path, "w", **profile) as n_dst, \
-                rasterio.open(easting_path, "w", **profile) as e_dst:
+        with (
+            rasterio.open(northing_path, "w", **profile) as n_dst,
+            rasterio.open(easting_path, "w", **profile) as e_dst,
+        ):
             for row_off in range(0, height, chunk_rows):
-                window = rasterio.windows.Window(0, row_off, width, min(chunk_rows, height - row_off))
+                window = rasterio.windows.Window(
+                    0, row_off, width, min(chunk_rows, height - row_off)
+                )
                 aspect = src.read(1, window=window).astype(np.float32)
                 valid = aspect != nodata
                 northing = np.full_like(aspect, -9999)

@@ -1,3 +1,5 @@
+"""Tests for the package version string."""
+
 import re
 
 from forest_browning import __version__
@@ -16,4 +18,5 @@ SEMVER_REGEX = re.compile(
 
 
 def test_version_format():
+    """Check that ``__version__`` follows semantic versioning."""
     assert SEMVER_REGEX.fullmatch(__version__)

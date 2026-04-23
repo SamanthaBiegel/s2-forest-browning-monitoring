@@ -7,6 +7,7 @@ from rasterio.coords import BoundingBox
 from rasterio.crs import CRS
 from rasterio.transform import Affine
 
+
 DATA_DIR = os.getenv("FOREST_BROWNING_DATA_DIR")
 if not DATA_DIR:
     raise RuntimeError(

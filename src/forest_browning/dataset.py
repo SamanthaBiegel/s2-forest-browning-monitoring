@@ -8,6 +8,7 @@ import torch
 import zarr
 from torch.utils.data import IterableDataset
 
+
 # Rescale input (stats obtained from full dataset)
 MEANS = {
     "dem": 1071.1402587890625,

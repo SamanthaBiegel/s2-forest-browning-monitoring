@@ -111,6 +111,12 @@ uv sync --group dev
 source .venv/bin/activate
 ```
 
+Install the pre-commit hooks:
+
+```sh
+pre-commit install
+```
+
 ---
 
 ## Configuration

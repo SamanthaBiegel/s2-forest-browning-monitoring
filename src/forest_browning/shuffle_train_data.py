@@ -1,6 +1,8 @@
 """A script to filter and shuffle NDVI/NDSI Zarr datasets for training."""
 
 import argparse
+import os
+import shutil
 from typing import Any
 
 import numpy as np
@@ -83,6 +85,15 @@ def write_shuffled_copy(
         chunk_rows (int, optional): Number of rows per chunk in the output Zarr arrays. Defaults to 8192.
     """
     root = zarr.open_group(target_zarr, mode="w", zarr_format=3)
+
+    source_zarr = dataloader.dataset.file_path
+    for name in ("missingness", "dates"):
+        src = os.path.join(source_zarr, name)
+        dst = os.path.join(target_zarr, name)
+        if os.path.exists(dst):
+            shutil.rmtree(dst)
+        shutil.copytree(src, dst)
+
     ndvi_out = root.create_array(
         "ndvi",
         shape=(n_samples, n_timesteps),
@@ -97,6 +108,9 @@ def write_shuffled_copy(
         dtype=dataloader.dataset.feat_array.dtype,
         compressors=[],
     )
+    feat_out.attrs["feature_columns"] = dataloader.dataset.feat_array.attrs[
+        "feature_columns"
+    ]
 
     offset = 0
     for batch in tqdm(dataloader, desc="Writing shuffled NDVI", total=len(dataloader)):

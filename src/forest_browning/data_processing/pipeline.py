@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 STEPS = [
     ("Extract Swisstopo dataset", "1_extract_swisstopo_dataset"),
     ("Transpose Swisstopo dataset", "2_transpose_swisstopo_dataset"),

@@ -12,3 +12,10 @@
 
 # Virtual environment
 .venv/
+
+# Model checkpoints
+checkpoints/
+runs/
+
+# uv
+uv.lock

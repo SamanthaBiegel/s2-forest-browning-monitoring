@@ -17,6 +17,7 @@ from tqdm import tqdm
 from forest_browning.dataset import MEANS, STDS, ZarrDataset
 from forest_browning.mlp import MLPWithEmbeddings
 
+
 DEFAULT_NUM_EPOCHS = 20
 DEFAULT_LR = 0.005
 DEFAULT_LR_DECAY_RATE = 0.01

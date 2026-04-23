@@ -18,6 +18,7 @@ from forest_browning.config import (
     TREE_SPECIES_PATH,
 )
 
+
 if not os.path.exists(TREE_SPECIES_PATH):
     raise RuntimeError(
         f"Tree species map not found at {TREE_SPECIES_PATH}. See README for instructions on how to download it."

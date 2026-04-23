@@ -10,12 +10,12 @@ from rasterio.windows import from_bounds
 from tqdm import tqdm
 
 from forest_browning.config import (
+    FOREST_MASK,
     INVALID,
     NO_COVERAGE,
     REF_BBOX_4326,
     SERVICE_URL,
     SPATIAL_DATASET_ZARR,
-    FOREST_MASK
 )
 
 
