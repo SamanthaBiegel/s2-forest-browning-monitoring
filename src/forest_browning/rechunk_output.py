@@ -10,6 +10,7 @@ from dask.distributed import Client, LocalCluster
 
 # Set global Dask config for memory spilling
 dask.config.set({"distributed.worker.memory.spill-compression": "lz4"})
+dask.config.set({"array.chunk-size": 845723168})
 
 
 def transpose_zarr(
@@ -50,9 +51,6 @@ def transpose_zarr(
         dst_slice.to_zarr(
             target_array, region=(slice(0, T), slice(start, end)), compute=True
         )
-
-        if client:
-            client.restart()
 
 
 if __name__ == "__main__":

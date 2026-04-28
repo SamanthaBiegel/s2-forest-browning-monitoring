@@ -26,7 +26,8 @@ dependencies = [
     "pystac_client ~= 0.9.0",
     "whitebox ~= 2.3.6",
     "numba ~= 0.65.0",
-    "dask[distributed] ~= 2026.3.0"
+    "dask[distributed] ~= 2026.3.0",
+    "lz4 ~= 4.4.5"
 ]
 dynamic = ["version"]
 

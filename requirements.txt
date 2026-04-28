@@ -210,6 +210,8 @@ locket==1.0.0
     # via
     #   distributed
     #   partd
+lz4==4.4.5
+    # via forest-browning (pyproject.toml)
 markdown==3.10.2
     # via tensorboard
 markupsafe==3.0.3
