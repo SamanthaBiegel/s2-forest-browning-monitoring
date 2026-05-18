@@ -14,17 +14,51 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
+from forest_browning.config import (
+    INVALID,
+    INVALID_SPECIES_CODE,
+    MISSING_SPECIES_CODE,
+    MODEL_D_BLOCK,
+    MODEL_D_OUT,
+    MODEL_HABITAT_EMB_DIM,
+    MODEL_N_BLOCKS,
+    MODEL_SPECIES_EMB_DIM,
+    NDVI_MAX,
+    NDVI_MIN,
+    NDVI_SCALE,
+    NO_COVERAGE,
+)
 from forest_browning.dataset import MEANS, STDS, ZarrDataset
 from forest_browning.mlp import MLPWithEmbeddings
 
 
-DEFAULT_NUM_EPOCHS = 20
-DEFAULT_LR = 0.005
-DEFAULT_LR_DECAY_RATE = 0.01
-DEFAULT_BATCH_SIZE = 1024
-DEFAULT_DEVICE = "cuda"
-DEFAULT_SEED = 42
-DEFAULT_FEATURES = ZarrDataset.all_features
+# Random seeds
+RANDOM_SEED = 42
+
+# Data loading
+BATCH_SIZE = 1024
+NUM_WORKERS = 4
+PREFETCH_FACTOR = 2
+FEATURES = ZarrDataset.all_features
+
+# Optimization
+LR = 0.005
+LR_DECAY_RATE = 0.01
+WEIGHT_DECAY = 1e-4
+LAMBDA_PERIODIC = 1.0
+LAMBDA_NC = 10.0
+
+# Training loop
+NUM_EPOCHS = 20
+DEVICE = "cuda"
+NC_GRID_SIZE = 32
+LOG_INTERVAL = 10
+PLOT_INTERVAL = 100
+
+# Visualization
+DAYS_PER_YEAR = 365
+FIT_N_STEPS = 1000
+PLOT_N_SAMPLES = 4
 
 
 def parse_features_arg(value: str) -> list[str]:
@@ -120,9 +154,9 @@ def train(args: argparse.Namespace) -> None:
     loader = DataLoader(
         ds,
         batch_size=None,
-        num_workers=4,
+        num_workers=NUM_WORKERS,
         pin_memory=True,
-        prefetch_factor=2,
+        prefetch_factor=PREFETCH_FACTOR,
         persistent_workers=True,
     )
 
@@ -132,15 +166,15 @@ def train(args: argparse.Namespace) -> None:
     # this model has ~475k parameters
     encoder = MLPWithEmbeddings(
         d_num=ds.nr_num_features,
-        d_out=18,
-        n_blocks=8,
-        d_block=256,
+        d_out=MODEL_D_OUT,
+        n_blocks=MODEL_N_BLOCKS,
+        d_block=MODEL_D_BLOCK,
         dropout=0.0,
         skip_connection=True,
         n_species=ds.nr_tree_species,
-        species_emb_dim=4,
+        species_emb_dim=MODEL_SPECIES_EMB_DIM,
         n_habitats=ds.nr_habitats,
-        habitat_emb_dim=8,
+        habitat_emb_dim=MODEL_HABITAT_EMB_DIM,
     ).to(args.device)
 
     print(
@@ -149,10 +183,11 @@ def train(args: argparse.Namespace) -> None:
         )
     )
 
-    optimizer = torch.optim.AdamW(encoder.parameters(), lr=args.lr, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(
+        encoder.parameters(), lr=args.lr, weight_decay=WEIGHT_DECAY
+    )
 
     # Create a fixed time grid for evaluating the non-crossing constraints
-    NC_GRID_SIZE = 32
     t_grid = torch.linspace(0, 1.0, NC_GRID_SIZE, device=args.device).unsqueeze(0)
 
     print("Starting training...")
@@ -166,16 +201,16 @@ def train(args: argparse.Namespace) -> None:
             ndvi, feat = sample
 
             # Create mask for NaN and outlier values in NDVI, and map NDVI from int16 to float32 in the range [-0.1, 1.0]
-            nan_mask = torch.isnan(ndvi) | (ndvi == -(2**15)) | (ndvi == 2**15 - 1)
-            ndvi = ndvi.float() / 10000.0
-            outlier_mask = (ndvi > 1) | (ndvi < -0.1)
+            nan_mask = torch.isnan(ndvi) | (ndvi == INVALID) | (ndvi == NO_COVERAGE)
+            ndvi = ndvi.float() / NDVI_SCALE
+            outlier_mask = (ndvi > NDVI_MAX) | (ndvi < NDVI_MIN)
             nan_mask = nan_mask | outlier_mask
 
             feat_num = feat[:, ds.num_feature_indices]
             feat_species = feat[:, ds.mapping_features["tree_species"]].int()
             feat_habitat = feat[:, ds.mapping_features["habitat"]].int()
             # Map invalid species code 255 to 16 (indicating missing)
-            feat_species[feat_species == 255] = 16
+            feat_species[feat_species == INVALID_SPECIES_CODE] = MISSING_SPECIES_CODE
 
             # Standardize input
             feat_num = (feat_num - means_pt) / stds_pt
@@ -211,7 +246,7 @@ def train(args: argparse.Namespace) -> None:
                 t,
                 t_ndvi_train,
                 t_nan_mask_train,
-                alpha=0.50,
+                alpha=0.5,
                 weights=missingness,
             )
             lossu = objective_pinball(
@@ -237,8 +272,6 @@ def train(args: argparse.Namespace) -> None:
             periodic_loss_u = torch.mean((startu - endu) ** 2)
             total_periodic_loss = periodic_loss_l + periodic_loss_m + periodic_loss_u
 
-            lambda_periodic = 1
-
             # Add constraint to ensure non-crossing of quantiles
             t_grid_b = t_grid.repeat(paramsl.shape[0], 1)
             ndvi_lower_grid = double_logistic_function(t_grid_b, paramsl)
@@ -251,14 +284,12 @@ def train(args: argparse.Namespace) -> None:
             per_sample_noncross = violation.mean(dim=1)
             total_noncross = per_sample_noncross.mean()
 
-            lambda_nc = 10.0
-
             loss = (
                 lossl
                 + lossm
                 + lossu
-                + lambda_periodic * total_periodic_loss
-                + lambda_nc * total_noncross
+                + LAMBDA_PERIODIC * total_periodic_loss
+                + LAMBDA_NC * total_noncross
             )
 
             optimizer.zero_grad()
@@ -272,7 +303,7 @@ def train(args: argparse.Namespace) -> None:
             for param_group in optimizer.param_groups:
                 param_group["lr"] = new_lrate
 
-            if (n_iterations + 1) % 10 == 0:
+            if (n_iterations + 1) % LOG_INTERVAL == 0:
                 writer.add_scalar("Loss/train", loss, n_iterations + 1)
                 for pi, param_group in enumerate(optimizer.param_groups):
                     writer.add_scalar(
@@ -281,13 +312,13 @@ def train(args: argparse.Namespace) -> None:
                         n_iterations + 1,
                     )
 
-            if (n_iterations + 1) % 100 == 0:
+            if (n_iterations + 1) % PLOT_INTERVAL == 0:
                 with torch.no_grad():
                     # Plot the fitted curves for a random subset of samples, along with the observed NDVI values, and log to TensorBoard
                     fig, ax = plt.subplots(2, 2, figsize=(15, 6), sharey=True)
 
                     t_fit = (
-                        torch.linspace(0, 1, 1000)
+                        torch.linspace(0, 1, FIT_N_STEPS)
                         .unsqueeze(0)
                         .repeat(paramsl.shape[0], 1)
                     )
@@ -296,7 +327,7 @@ def train(args: argparse.Namespace) -> None:
                     ndvi_upper = double_logistic_function(t_fit, paramsu.cpu())
 
                     random_indices = np.random.choice(
-                        np.arange(paramsl.shape[0]), size=4, replace=False
+                        np.arange(paramsl.shape[0]), size=PLOT_N_SAMPLES, replace=False
                     )
                     for pl_idx, bi in enumerate(random_indices):
                         row, col = divmod(pl_idx, 2)
@@ -304,14 +335,14 @@ def train(args: argparse.Namespace) -> None:
                         masked_ndvi_train = ndvi[bi][~nan_mask[bi]]
 
                         # Convert fractional year (t) to day-of-year for plotting
-                        doy_array = (ds.t * 365).astype(np.float32)
+                        doy_array = (ds.t * DAYS_PER_YEAR).astype(np.float32)
                         masked_doy_train = doy_array[~nan_mask[bi]]
 
                         ax[row, col].scatter(
                             masked_doy_train, masked_ndvi_train, label="Observed NDVI"
                         )
                         ax[row, col].fill_between(
-                            (t_fit * 365)[bi],
+                            (t_fit * DAYS_PER_YEAR)[bi],
                             ndvi_lower[bi],
                             ndvi_middle[bi],
                             alpha=0.2,
@@ -319,13 +350,13 @@ def train(args: argparse.Namespace) -> None:
                         )
 
                         ax[row, col].fill_between(
-                            (t_fit * 365)[bi],
+                            (t_fit * DAYS_PER_YEAR)[bi],
                             ndvi_middle[bi],
                             ndvi_upper[bi],
                             alpha=0.2,
                             color="green",
                         )
-                        ax[row, col].set_xlim(0, 365)
+                        ax[row, col].set_xlim(0, DAYS_PER_YEAR)
                         ax[row, col].set_xlabel("Day of year")
                         ax[0, 0].set_ylabel("NDVI")
                         ax[1, 0].set_ylabel("NDVI")
@@ -345,7 +376,7 @@ def train(args: argparse.Namespace) -> None:
                         all_masked_ndvi_train, all_masked_ndvi_lower, alpha=0.25
                     )
                     d2_score_middle = d2_pinball_score(
-                        all_masked_ndvi_train, all_masked_ndvi_middle, alpha=0.50
+                        all_masked_ndvi_train, all_masked_ndvi_middle, alpha=0.5
                     )
                     d2_score_upper = d2_pinball_score(
                         all_masked_ndvi_train, all_masked_ndvi_upper, alpha=0.75
@@ -385,14 +416,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--features",
         type=parse_features_arg,
-        default=DEFAULT_FEATURES,
+        default=FEATURES,
     )
-    parser.add_argument("--num_epochs", type=int, default=DEFAULT_NUM_EPOCHS)
-    parser.add_argument("--lr", type=float, default=DEFAULT_LR)
-    parser.add_argument("--lr_decay_rate", type=float, default=DEFAULT_LR_DECAY_RATE)
-    parser.add_argument("--batch_size", type=int, default=DEFAULT_BATCH_SIZE)
-    parser.add_argument("--device", type=str, default=DEFAULT_DEVICE)
-    parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument("--num_epochs", type=int, default=NUM_EPOCHS)
+    parser.add_argument("--lr", type=float, default=LR)
+    parser.add_argument("--lr_decay_rate", type=float, default=LR_DECAY_RATE)
+    parser.add_argument("--batch_size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--device", type=str, default=DEVICE)
+    parser.add_argument("--seed", type=int, default=RANDOM_SEED)
     args = parser.parse_args()
 
     train(args)

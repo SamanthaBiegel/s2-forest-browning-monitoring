@@ -11,6 +11,8 @@ import zarr
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
+from forest_browning.config import INVALID, NDSI_SNOW_MAX, NDSI_SNOW_MIN
+
 
 class ShuffleDataset(Dataset):
     """A dataset for shuffling and filtering NDVI/NDSI Zarr datasets.
@@ -118,8 +120,8 @@ def write_shuffled_copy(
         ndvi = ndvi.numpy().astype(np.int16)
         ndsi = ndsi.numpy().astype(np.int16)
         feat = feat.numpy()
-        mask = (ndsi > 4300) & (ndsi < 10000)
-        ndvi[mask] = -(2**15)
+        mask = (ndsi > NDSI_SNOW_MIN) & (ndsi < NDSI_SNOW_MAX)
+        ndvi[mask] = INVALID
         ndvi_out[offset : offset + ndvi.shape[0], :] = ndvi
         feat_out[offset : offset + feat.shape[0], :] = feat
         offset += ndvi.shape[0]

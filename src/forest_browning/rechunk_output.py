@@ -32,7 +32,6 @@ def transpose_zarr(
     src = da.from_zarr(source_zarr, component=component)
     N, T = src.shape
 
-    # Fixed: Using 'target_zarr' instead of the global 'TRANSPOSED_ZARR'
     empty = da.zeros((T, N), chunks=(1, N))
     empty.to_zarr(target_zarr, component=component, compute=False, overwrite=True)
 

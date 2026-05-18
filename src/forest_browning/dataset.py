@@ -8,6 +8,8 @@ import torch
 import zarr
 from torch.utils.data import IterableDataset
 
+from forest_browning.config import N_HABITATS, N_TREE_SPECIES
+
 
 # Rescale input (stats obtained from full dataset)
 MEANS = {
@@ -127,8 +129,8 @@ class ZarrDataset(IterableDataset):
         self.num_feature_indices = [
             i for f in self.num_features for i in self.mapping_features[f]
         ]
-        self.nr_tree_species = 17
-        self.nr_habitats = 46
+        self.nr_tree_species = N_TREE_SPECIES
+        self.nr_habitats = N_HABITATS
 
     def set_epoch(self, epoch: int) -> None:
         """Set the epoch for reproducible shuffling. Should be called at the beginning of each epoch in training.

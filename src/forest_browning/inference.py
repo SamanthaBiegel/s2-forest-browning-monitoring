@@ -9,10 +9,32 @@ import torch
 import zarr
 from tqdm import tqdm
 
-from forest_browning.config import CHUNK_SIZE, INVALID, NO_COVERAGE
+from forest_browning.config import (
+    ANOMALY_FILL_VALUE,
+    ANOMALY_MASKED_VALUE,
+    CHUNK_SIZE,
+    INVALID,
+    INVALID_SPECIES_CODE,
+    IQR_MULTIPLIER,
+    MISSING_SPECIES_CODE,
+    MODEL_D_BLOCK,
+    MODEL_D_OUT,
+    MODEL_HABITAT_EMB_DIM,
+    MODEL_N_BLOCKS,
+    MODEL_SPECIES_EMB_DIM,
+    NDSI_SNOW_MAX,
+    NDSI_SNOW_MIN,
+    NDVI_MAX,
+    NDVI_MIN,
+    NDVI_SCALE,
+    NO_COVERAGE,
+)
 from forest_browning.dataset import MEANS, STDS, ZarrDataset
 from forest_browning.mlp import MLPWithEmbeddings
 from forest_browning.train import double_logistic_function
+
+
+CUDA_CACHE_CLEAR_INTERVAL = 50
 
 
 def rectify_parameters(params: torch.Tensor) -> torch.Tensor:
@@ -63,15 +85,15 @@ def inference(args: argparse.Namespace) -> None:
 
     encoder = MLPWithEmbeddings(
         d_num=ds.nr_num_features,
-        d_out=18,
-        n_blocks=8,
-        d_block=256,
+        d_out=MODEL_D_OUT,
+        n_blocks=MODEL_N_BLOCKS,
+        d_block=MODEL_D_BLOCK,
         dropout=0.0,
         skip_connection=True,
         n_species=ds.nr_tree_species,
-        species_emb_dim=4,
+        species_emb_dim=MODEL_SPECIES_EMB_DIM,
         n_habitats=ds.nr_habitats,
-        habitat_emb_dim=8,
+        habitat_emb_dim=MODEL_HABITAT_EMB_DIM,
     ).to(args.device)
     encoder.load_state_dict(torch.load(args.encoder_path, map_location=args.device))
     encoder.eval()
@@ -165,7 +187,7 @@ def inference(args: argparse.Namespace) -> None:
         shape=(N, T),
         chunks=(CHUNK_SIZE, T),
         dtype="int8",
-        fill_value=127,
+        fill_value=ANOMALY_FILL_VALUE,
         compressors=zarr.codecs.BloscCodec(
             cname="zstd", clevel=5, shuffle=zarr.codecs.BloscShuffle.bitshuffle
         ),
@@ -205,7 +227,7 @@ def inference(args: argparse.Namespace) -> None:
             feat_num = feat[:, num_columns]
             feat_species = feat[:, species_columns].int()
             feat_habitat = feat[:, habitat_columns].int()
-            feat_species[feat_species == 255] = 16
+            feat_species[feat_species == INVALID_SPECIES_CODE] = MISSING_SPECIES_CODE
 
             # Standardize input
             feat_num = (feat_num - means_pt) / stds_pt
@@ -239,15 +261,17 @@ def inference(args: argparse.Namespace) -> None:
             is_unavailable = ndvi == INVALID
             is_masked = ndvi == NO_COVERAGE
             is_outlier = (
-                ((ndvi > 10000) | (ndvi < -1000)) & ~is_unavailable & ~is_masked
+                ((ndvi > NDVI_MAX * NDVI_SCALE) | (ndvi < NDVI_MIN * NDVI_SCALE))
+                & ~is_unavailable
+                & ~is_masked
             )
             is_nan = np.isnan(ndvi)
-            is_snow = (ndsi >= 4300) & (ndsi <= 10000)
+            is_snow = (ndsi >= NDSI_SNOW_MIN) & (ndsi <= NDSI_SNOW_MAX)
 
             valid_mask = ~(is_unavailable | is_masked | is_outlier | is_nan | is_snow)
             print("Valid pixels:", np.sum(valid_mask), "out of", valid_mask.size)
 
-            ndvi = ndvi / 10000.0
+            ndvi = ndvi / NDVI_SCALE
 
             print(
                 "NDVI stats:",
@@ -279,13 +303,13 @@ def inference(args: argparse.Namespace) -> None:
             )
 
             feat_grp_preds["ndvi_pred_lower"][slc, :] = (
-                (ndvi_lower * 10000.0).round().astype(np.int16)
+                (ndvi_lower * NDVI_SCALE).round().astype(np.int16)
             )
             feat_grp_preds["ndvi_pred_median"][slc, :] = (
-                (ndvi_median * 10000.0).round().astype(np.int16)
+                (ndvi_median * NDVI_SCALE).round().astype(np.int16)
             )
             feat_grp_preds["ndvi_pred_upper"][slc, :] = (
-                (ndvi_upper * 10000.0).round().astype(np.int16)
+                (ndvi_upper * NDVI_SCALE).round().astype(np.int16)
             )
 
             iqr = ndvi_upper - ndvi_lower
@@ -299,8 +323,8 @@ def inference(args: argparse.Namespace) -> None:
             )
 
             # Define thresholds for anomalies
-            lower_thresh = ndvi_lower - 1.5 * iqr
-            upper_thresh = ndvi_upper + 1.5 * iqr
+            lower_thresh = ndvi_lower - IQR_MULTIPLIER * iqr
+            upper_thresh = ndvi_upper + IQR_MULTIPLIER * iqr
 
             # Compute anomalies only for valid NDVI
             is_lower_anomaly = (ndvi < lower_thresh) & valid_mask
@@ -313,8 +337,8 @@ def inference(args: argparse.Namespace) -> None:
             anomalies = np.zeros_like(ndvi, dtype=np.int8)
             anomalies[is_lower_anomaly] = -1
             anomalies[is_upper_anomaly] = 1
-            anomalies[is_masked | is_outlier | is_nan | is_snow] = -128
-            anomalies[is_unavailable] = 127
+            anomalies[is_masked | is_outlier | is_nan | is_snow] = ANOMALY_MASKED_VALUE
+            anomalies[is_unavailable] = ANOMALY_FILL_VALUE
 
             print("Anomaly distribution:", np.unique(anomalies, return_counts=True))
             neg_mask = anomalies == -1
@@ -344,7 +368,7 @@ def inference(args: argparse.Namespace) -> None:
 
             root_params["anomaly_scores"][slc, :] = score
 
-            if (i + 1) % 50 == 0:
+            if (i + 1) % CUDA_CACHE_CLEAR_INTERVAL == 0:
                 torch.cuda.empty_cache()
 
 
