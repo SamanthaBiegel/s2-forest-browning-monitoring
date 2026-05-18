@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "s2-forest-browning-monitoring"
+abstract: "Switzerland-wide, 10 m resolution NDVI anomaly maps from Sentinel-2 imagery to monitor forest browning events."
+authors:
+  - family-names: Biegel
+    given-names: Samantha
+    email: samantha.biegel@ai.ethz.ch
+  - family-names: Brüggemann
+    given-names: David
+    email: david.brueggemann@datascience.ch
+  - family-names: Grossi
+    given-names: Francesco
+  - family-names: Volpi
+    given-names: Michele
+  - family-names: Schindler
+    given-names: Konrad
+  - family-names: Stocker
+    given-names: Benjamin
+repository-code: "https://github.com/SamanthaBiegel/s2-forest-browning-monitoring"
+url: "https://samanthabiegel.github.io/forestbrowning/"
+license: Apache-2.0
+preferred-citation:
+  type: conference-paper
+  title: "Country-wide, high-resolution monitoring of forest browning with Sentinel-2"
+  authors:
+    - family-names: Biegel
+      given-names: Samantha
+      email: samantha.biegel@ai.ethz.ch
+    - family-names: Brüggemann
+      given-names: David
+      email: david.brueggemann@datascience.ch
+    - family-names: Grossi
+      given-names: Francesco
+    - family-names: Volpi
+      given-names: Michele
+    - family-names: Schindler
+      given-names: Konrad
+    - family-names: Stocker
+      given-names: Benjamin
+  collection-title: "ISPRS Annals of the Photogrammetry, Remote Sensing and Spatial Information Sciences"
+  year: 2026
+  url: "https://arxiv.org/abs/2604.02074"
+  identifiers:
+    - type: other
+      value: "arXiv:2604.02074"
+      description: "arXiv preprint"
