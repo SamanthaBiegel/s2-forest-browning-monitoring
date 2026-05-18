@@ -4,7 +4,8 @@ Code for **Country-wide, high-resolution monitoring of forest browning with Sent
 
 👥 **Authors:** Samantha Biegel, David Brüggemann, Francesco Grossi, Michele Volpi, Konrad Schindler, Benjamin Stocker<br>
 🌐 **Website:** [samanthabiegel.github.io/forestbrowning](https://samanthabiegel.github.io/forestbrowning/)<br>
-📄 **Paper:** [arXiv 2604.02074](https://arxiv.org/abs/2604.02074)
+📄 **Paper:** [arXiv 2604.02074](https://arxiv.org/abs/2604.02074)<br>
+🗺️ **Demo:** [forest-monitoring.org](https://forest-monitoring.org/)
 
 ![teaser](docs/teaser.jpg)
 
