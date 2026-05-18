@@ -33,7 +33,7 @@ s2-forest-browning-monitoring/
 │   └── encoder.pt             # pre-trained model checkpoint
 ├── tests/
 ├── pyproject.toml
-├── requirements.txt
+├── uv.lock
 └── README.md
 ```
 
@@ -42,7 +42,7 @@ s2-forest-browning-monitoring/
 ## Requirements
 
 - Python 3.12 or later
-- [uv](https://docs.astral.sh/uv/) **or** plain `pip`
+- [uv](https://docs.astral.sh/uv/)
 - GDAL CLI tools (`gdalwarp`, `gdaldem`, `gdal_calc.py`)
 - TauDEM (`d8flowdir`, `aread8`) with MPI
 
@@ -97,16 +97,6 @@ which d8flowdir && mpiexec --version
 ```sh
 git clone git@github.com:SamanthaBiegel/s2-forest-browning-monitoring.git
 cd s2-forest-browning-monitoring
-
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt -e .
-```
-
-Alternatively, use `uv`:
-
-```sh
 uv sync --group dev
 source .venv/bin/activate
 ```
